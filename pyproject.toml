@@ -4,6 +4,12 @@ version = "0.1.0"
 description = "A Python autonomous browser agent using LangGraph and Playwright"
 authors = ["Aditya Mehta"]
 readme = "README.md"
+packages = [
+    { include = "agent" },
+    { include = "api" },
+    { include = "db" }
+]
+
 
 [tool.poetry.dependencies]
 python = "^3.11"
