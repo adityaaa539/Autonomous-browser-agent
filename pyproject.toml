@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "browser-agent"
+version = "0.1.0"
+description = "A Python autonomous browser agent using LangGraph and Playwright"
+authors = ["Aditya Mehta"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+playwright = "*"
+langchain = "*"
+langgraph = "*"
+langchain-openai = "*"
+openai = "*"
+fastapi = "*"
+uvicorn = "*"
+sqlalchemy = "*"
+alembic = "*"
+asyncpg = "*"
+python-dotenv = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+httpx = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
