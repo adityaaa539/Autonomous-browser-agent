@@ -141,81 +141,89 @@ async def test_analyze_page_with_vision():
 @pytest.mark.asyncio
 async def test_graph_execution():
     import json
-    from agent.graph import compile_graph
-    from unittest.mock import AsyncMock
+    from unittest.mock import AsyncMock, patch
+    from agent.graph import compile_graph, set_browser_context
     
     graph = compile_graph()
     
     async with BrowserManager() as bm:
-        # Mock OpenAI planner responses for a 3-step form submission flow
+        set_browser_context(bm)
+        
+        # Mock OpenAI planner responses for a 4-step form submission flow
         mock_response_1 = AsyncMock()
         mock_response_1.choices = [
             AsyncMock(message=AsyncMock(content=json.dumps({
-                "thought": "Let's populate the name and email.",
-                "actions": [
-                    {"action": "fill", "selector": "#name", "text": "TestUser", "timeout": 1000},
-                    {"action": "fill", "selector": "#email", "text": "test@user.com", "timeout": 1000}
-                ],
-                "is_completed": False
+                "action": "fill",
+                "params": {"selector": "#name", "text": "TestUser"},
+                "reasoning": "Fill the name field."
             })))
         ]
         
         mock_response_2 = AsyncMock()
         mock_response_2.choices = [
             AsyncMock(message=AsyncMock(content=json.dumps({
-                "thought": "Now let's submit the form.",
-                "actions": [
-                    {"action": "click", "selector": "#submit-btn", "timeout": 1000}
-                ],
-                "is_completed": False
+                "action": "fill",
+                "params": {"selector": "#email", "text": "test@user.com"},
+                "reasoning": "Fill the email field."
             })))
         ]
         
         mock_response_3 = AsyncMock()
         mock_response_3.choices = [
             AsyncMock(message=AsyncMock(content=json.dumps({
-                "thought": "Task is completed, result is visible.",
-                "actions": [],
-                "is_completed": True,
-                "final_answer": "Form successfully submitted for TestUser"
+                "action": "click",
+                "params": {"selector": "#submit-btn"},
+                "reasoning": "Click the submit button."
             })))
         ]
         
-        bm.openai_client.chat.completions.create = AsyncMock(side_effect=[
-            mock_response_1,
-            mock_response_2,
-            mock_response_3
-        ])
+        mock_response_4 = AsyncMock()
+        mock_response_4.choices = [
+            AsyncMock(message=AsyncMock(content=json.dumps({
+                "action": "done",
+                "params": {"result": "Form successfully submitted for TestUser"},
+                "reasoning": "Finish the task."
+            })))
+        ]
         
-        initial_state = {
-            "task": "Submit the form with name TestUser and email test@user.com",
-            "start_url": TEST_URL,
-            "current_url": "",
-            "screenshot_b64": "",
-            "page_text": "",
-            "interactive_elements": [],
-            "steps": [],
-            "step_count": 0,
-            "done": False,
-            "success": True,
-            "result": "",
-            "error": None
-        }
-        
-        config = {"configurable": {"browser_manager": bm}}
-        final_state = await graph.ainvoke(initial_state, config=config)
-        
-        # Verify graph final state
-        assert final_state["done"] is True
-        assert final_state["success"] is True
-        assert final_state["result"] == "Form successfully submitted for TestUser"
-        assert final_state["step_count"] == 3
-        assert len(final_state["steps"]) == 3
-        assert "Executed: Action 'fill'" in final_state["steps"][0]
-        assert "Executed: Action 'click'" in final_state["steps"][1]
-        
-        # Verify that browser execution actually took place
-        result_text = await bm.page.inner_text("#result")
-        assert "Form submitted! Name: TestUser" in result_text
+        # Patch AsyncOpenAI inside agent.graph
+        with patch("agent.graph.AsyncOpenAI") as mock_openai_class:
+            mock_client = AsyncMock()
+            mock_openai_class.return_value = mock_client
+            mock_client.chat.completions.create = AsyncMock(side_effect=[
+                mock_response_1,
+                mock_response_2,
+                mock_response_3,
+                mock_response_4
+            ])
+            
+            initial_state = {
+                "task": "Submit the form with name TestUser and email test@user.com",
+                "start_url": TEST_URL,
+                "current_url": "",
+                "screenshot_b64": "",
+                "page_text": "",
+                "interactive_elements": [],
+                "steps": [],
+                "pending_action": {},
+                "step_count": 0,
+                "done": False,
+                "success": True,
+                "result": "",
+                "error": ""
+            }
+            
+            final_state = await graph.ainvoke(initial_state)
+            
+            # Verify graph final state
+            assert final_state["done"] is True
+            assert final_state["success"] is True
+            assert final_state["result"] == "Form successfully submitted for TestUser"
+            assert final_state["step_count"] == 8
+            assert len(final_state["steps"]) == 4
+            
+            # Verify that browser execution actually took place
+            result_text = await bm.page.inner_text("#result")
+            assert "Form submitted! Name: TestUser" in result_text
 
 
