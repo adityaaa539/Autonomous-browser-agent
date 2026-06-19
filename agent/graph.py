@@ -89,7 +89,8 @@ async def plan_node(state: AgentState):
         max_tokens=1000
     )
     
-    raw_content = response.choices[0].message.content.strip()
+    raw_content = response.choices[0].message.content or ""
+    raw_content = raw_content.strip()
     
     # Strip markdown code fences if present
     cleaned = raw_content
