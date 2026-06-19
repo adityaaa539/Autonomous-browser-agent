@@ -89,7 +89,11 @@ async def plan_node(state: AgentState):
         max_tokens=1000
     )
     
-    raw_content = response.choices[0].message.content or ""
+    raw_content = ""
+    if response and getattr(response, "choices", None) and len(response.choices) > 0:
+        choice = response.choices[0]
+        if choice and getattr(choice, "message", None):
+            raw_content = getattr(choice.message, "content", "") or ""
     raw_content = raw_content.strip()
     
     # Strip markdown code fences if present
@@ -212,19 +216,23 @@ async def execute_node(state: AgentState):
             data = params.get("data")
             selector = params.get("selector")
             
-            if data is not None:
+            if data is not None and not (isinstance(data, str) and data.startswith(("#", "."))):
                 updates["result"] = data
-            elif selector:
-                try:
-                    element_text = await browser.page.inner_text(selector)
-                    updates["result"] = element_text.strip()
-                except Exception as e:
-                    updates["result"] = f"Failed to extract selector text: {e}"
             else:
-                try:
-                    updates["result"] = await browser.page.title()
-                except Exception:
-                    updates["result"] = ""
+                if data and isinstance(data, str) and data.startswith(("#", ".")):
+                    selector = data
+                
+                if selector:
+                    try:
+                        element_text = await browser.page.inner_text(selector)
+                        updates["result"] = element_text.strip()
+                    except Exception as e:
+                        updates["result"] = f"Failed to extract selector text: {e}"
+                else:
+                    try:
+                        updates["result"] = await browser.page.title()
+                    except Exception:
+                        updates["result"] = data or ""
             
         elif action_type == "done":
             updates["done"] = True
