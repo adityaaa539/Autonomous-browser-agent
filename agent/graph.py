@@ -103,12 +103,34 @@ async def plan_node(state: AgentState):
     
     try:
         pending_action = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse planner response: {cleaned}")
+        if not isinstance(pending_action, dict):
+            raise ValueError("Response is not a JSON object")
+            
+        # Fallback 1: if it has "is_completed": true or "final_answer"
+        if pending_action.get("is_completed") is True or "final_answer" in pending_action:
+            pending_action["action"] = "done"
+            pending_action["params"] = {"result": pending_action.get("final_answer", "")}
+            
+        # Fallback 2: if it has "actions" list
+        elif "action" not in pending_action and "actions" in pending_action:
+            actions_list = pending_action["actions"]
+            if actions_list and isinstance(actions_list, list):
+                first_act = actions_list[0]
+                pending_action["action"] = first_act.get("action")
+                pending_action["params"] = {k: v for k, v in first_act.items() if k not in ("action", "thought")}
+                if "reasoning" not in pending_action:
+                    pending_action["reasoning"] = pending_action.get("thought", "") or first_act.get("thought", "")
+        
+        # Validate that action is now present
+        if "action" not in pending_action:
+            raise ValueError("Response JSON is missing 'action' field")
+            
+    except Exception as e:
+        logger.error(f"Failed to parse planner response: {cleaned}. Error: {e}")
         pending_action = {
             "action": "fail",
-            "params": {"reason": f"Failed to parse JSON response: {e}"},
-            "reasoning": "OpenAI did not return a valid JSON object."
+            "params": {"reason": f"Invalid planner response: {e}. Raw response: {cleaned[:200]}"},
+            "reasoning": "OpenAI did not return a valid JSON object matching the action schema."
         }
         
     steps = list(state.get("steps") or [])
@@ -175,7 +197,23 @@ async def execute_node(state: AgentState):
         elif action_type == "extract":
             updates["done"] = True
             updates["success"] = True
-            updates["result"] = params.get("data")
+            
+            data = params.get("data")
+            selector = params.get("selector")
+            
+            if data is not None:
+                updates["result"] = data
+            elif selector:
+                try:
+                    element_text = await browser.page.inner_text(selector)
+                    updates["result"] = element_text.strip()
+                except Exception as e:
+                    updates["result"] = f"Failed to extract selector text: {e}"
+            else:
+                try:
+                    updates["result"] = await browser.page.title()
+                except Exception:
+                    updates["result"] = ""
             
         elif action_type == "done":
             updates["done"] = True
