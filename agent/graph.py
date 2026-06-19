@@ -119,7 +119,72 @@ async def plan_node(state: AgentState):
         "steps": steps
     }
 
-async def execute_node(state): return {}
+async def execute_node(state: AgentState):
+    logger.info("Executing pending action...")
+    browser = get_browser_context()
+    pending_action = state.get("pending_action") or {}
+    action_type = pending_action.get("action")
+    params = pending_action.get("params") or {}
+    
+    updates = {
+        "step_count": state.get("step_count", 0) + 1
+    }
+    
+    try:
+        if action_type == "navigate":
+            url = params.get("url")
+            if not url:
+                raise ValueError("Missing 'url' parameter for navigate action")
+            await browser.navigate(url)
+            
+        elif action_type == "click":
+            selector = params.get("selector")
+            if not selector:
+                raise ValueError("Missing 'selector' parameter for click action")
+            await browser.click(selector)
+            await asyncio.sleep(0.8)
+            
+        elif action_type == "fill":
+            selector = params.get("selector")
+            text = params.get("text")
+            if not selector or text is None:
+                raise ValueError("Missing 'selector' or 'text' parameter for fill action")
+            await browser.fill(selector, text)
+            
+        elif action_type == "scroll":
+            direction = params.get("direction", "down")
+            pixels = params.get("pixels", 500)
+            try:
+                pixels = int(pixels)
+            except Exception:
+                pixels = 500
+            await browser.scroll(direction, pixels)
+            
+        elif action_type == "extract":
+            updates["done"] = True
+            updates["success"] = True
+            updates["result"] = params.get("data")
+            
+        elif action_type == "done":
+            updates["done"] = True
+            updates["success"] = True
+            updates["result"] = params.get("result")
+            
+        elif action_type == "fail":
+            updates["done"] = True
+            updates["success"] = False
+            updates["error"] = params.get("reason")
+            
+        else:
+            raise ValueError(f"Unknown action: {action_type}")
+            
+    except Exception as e:
+        logger.error(f"Error executing action: {e}")
+        updates["done"] = True
+        updates["success"] = False
+        updates["error"] = str(e)
+        
+    return updates
 
 async def check_node(state):
     if state.get("done") or state.get("step_count", 0) >= 20:
