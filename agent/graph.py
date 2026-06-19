@@ -144,12 +144,24 @@ async def execute_node(state: AgentState):
             await browser.click(selector)
             await asyncio.sleep(0.8)
             
-        elif action_type == "fill":
+        elif action_type in ("fill", "select"):
             selector = params.get("selector")
-            text = params.get("text")
+            text = params.get("text") or params.get("value")
             if not selector or text is None:
-                raise ValueError("Missing 'selector' or 'text' parameter for fill action")
-            await browser.fill(selector, text)
+                raise ValueError("Missing 'selector' or 'text'/'value' parameter for fill/select action")
+            
+            is_select = False
+            try:
+                is_select = await browser.page.evaluate(
+                    f"document.querySelector('{selector}').tagName.toLowerCase() === 'select'"
+                )
+            except Exception:
+                pass
+                
+            if is_select:
+                await browser.page.select_option(selector, label=text)
+            else:
+                await browser.fill(selector, text)
             
         elif action_type == "scroll":
             direction = params.get("direction", "down")
