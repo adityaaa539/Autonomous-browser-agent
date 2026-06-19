@@ -121,6 +121,16 @@ async def plan_node(state: AgentState):
                 if "reasoning" not in pending_action:
                     pending_action["reasoning"] = pending_action.get("thought", "") or first_act.get("thought", "")
         
+        # Fallback 3: if key matches an action and value is dict (e.g. {"extract": {"data": "..."}})
+        if "action" not in pending_action:
+            for possible_action in ("navigate", "click", "fill", "scroll", "extract", "done", "fail"):
+                if possible_action in pending_action and isinstance(pending_action[possible_action], dict):
+                    pending_action["action"] = possible_action
+                    pending_action["params"] = pending_action[possible_action]
+                    if "reasoning" not in pending_action and "reasoning" in pending_action[possible_action]:
+                        pending_action["reasoning"] = pending_action[possible_action]["reasoning"]
+                    break
+        
         # Validate that action is now present
         if "action" not in pending_action:
             raise ValueError("Response JSON is missing 'action' field")
