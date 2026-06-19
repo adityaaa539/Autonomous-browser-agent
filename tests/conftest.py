@@ -25,3 +25,7 @@ def http_server():
     yield server
     server.shutdown()
     server.server_close()
+
+@pytest.fixture(scope="session")
+def local_server(http_server):
+    return http_server
