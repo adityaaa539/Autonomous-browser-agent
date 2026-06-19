@@ -1,8 +1,21 @@
+import json
+import os
+import asyncio
+import logging
 from typing import TypedDict, Any
 from langgraph.graph import StateGraph, END
-import logging
+from openai import AsyncOpenAI
+from agent.browser import BrowserManager
+from agent.prompts import PLANNER_SYSTEM_PROMPT, ACTION_SCHEMA
 
 logger = logging.getLogger(__name__)
+
+# Module-level browser context
+_browser_context = None
+def set_browser_context(b): global _browser_context; _browser_context = b
+def get_browser_context():
+    if _browser_context is None: raise RuntimeError("Browser context not set")
+    return _browser_context
 
 class AgentState(TypedDict):
     task: str
@@ -19,20 +32,107 @@ class AgentState(TypedDict):
     result: str
     error: str
 
-# PART B — Four stub node functions (we fill them in next steps):
+# Node implementations
 
-async def observe_node(state): return {}
-async def plan_node(state): return {}
+async def observe_node(state: AgentState):
+    logger.info("Observing current page state...")
+    browser = get_browser_context()
+    
+    # If starting, navigate to start_url
+    if not state.get("current_url") and state.get("start_url"):
+        await browser.navigate(state["start_url"])
+        
+    current_url = await browser.get_current_url()
+    screenshot_b64 = await browser.screenshot()
+    page_text = await browser.get_page_text()
+    interactive_elements = await browser.get_interactive_elements()
+    
+    return {
+        "current_url": current_url,
+        "screenshot_b64": screenshot_b64,
+        "page_text": page_text,
+        "interactive_elements": interactive_elements,
+        "step_count": state.get("step_count", 0) + 1
+    }
+
+async def plan_node(state: AgentState):
+    logger.info("Planning next action...")
+    client = AsyncOpenAI()
+    
+    # Build text content representing current state
+    user_data = {
+        "task": state.get("task", ""),
+        "current_url": state.get("current_url", ""),
+        "interactive_elements": state.get("interactive_elements", []),
+        "history": state.get("steps", [])
+    }
+    user_text = json.dumps(user_data, indent=2)
+    
+    # Call OpenAI API with image and text
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_text},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{state.get('screenshot_b64', '')}"
+                        }
+                    }
+                ]
+            }
+        ],
+        max_tokens=1000
+    )
+    
+    raw_content = response.choices[0].message.content.strip()
+    
+    # Strip markdown code fences if present
+    cleaned = raw_content
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+    
+    try:
+        pending_action = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse planner response: {cleaned}")
+        pending_action = {
+            "action": "fail",
+            "params": {"reason": f"Failed to parse JSON response: {e}"},
+            "reasoning": "OpenAI did not return a valid JSON object."
+        }
+        
+    steps = list(state.get("steps") or [])
+    steps.append(cleaned)
+    
+    return {
+        "pending_action": pending_action,
+        "steps": steps
+    }
+
 async def execute_node(state): return {}
+
 async def check_node(state):
-    if state.get("done") or state.get("step_count",0)>=20: return {"done":True}
-    if state.get("error"): return {"done":True,"success":False}
-    return {"done":False}
+    if state.get("done") or state.get("step_count", 0) >= 20:
+        return {"done": True}
+    if state.get("error"):
+        return {"done": True, "success": False}
+    return {"done": False}
 
 # PART C — Router and graph wiring:
 
 def should_continue(state):
-    if state.get("done") or state.get("step_count",0)>=20: return "end"
+    if state.get("done") or state.get("step_count", 0) >= 20:
+        return "end"
     return "continue"
 
 def compile_graph():
@@ -42,8 +142,8 @@ def compile_graph():
     graph.add_node("execute", execute_node)
     graph.add_node("check", check_node)
     graph.set_entry_point("observe")
-    graph.add_edge("observe","plan")
-    graph.add_edge("plan","execute")
-    graph.add_edge("execute","check")
-    graph.add_conditional_edges("check", should_continue, {"continue":"observe","end":END})
+    graph.add_edge("observe", "plan")
+    graph.add_edge("plan", "execute")
+    graph.add_edge("execute", "check")
+    graph.add_conditional_edges("check", should_continue, {"continue": "observe", "end": END})
     return graph.compile()

@@ -260,6 +260,11 @@ class BrowserManager:
             logger.error(f"Error waiting for selector {selector}: {e}")
             raise BrowserError(f"Error waiting for selector: {selector}") from e
 
+    async def get_current_url(self) -> str:
+        if not self.page:
+            raise BrowserError("Browser not initialized. Use context manager.")
+        return self.page.url
+
     async def analyze_page_with_vision(self, task: str) -> str:
         logger.debug(f"Analyzing page with vision for task: {task}")
         if not self.page:
