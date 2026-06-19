@@ -86,7 +86,7 @@ async def plan_node(state: AgentState):
                 ]
             }
         ],
-        max_tokens=1000
+        max_tokens=256
     )
     
     raw_content = response.choices[0].message.content.strip()
