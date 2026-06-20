@@ -5,11 +5,14 @@ load_dotenv()
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uvicorn
 
 from db.database import get_db
+from db.models import Task
+from api.schemas import TaskResponse
+from api.routes.tasks import router as tasks_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +32,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register routes
+app.include_router(tasks_router, prefix="/tasks")
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Browser Agent API starting up")
@@ -45,6 +51,13 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return {"db": "error", "detail": str(e)}
+
+@app.get("/tasks", response_model=list[TaskResponse])
+async def get_tasks(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Task).order_by(Task.created_at.desc()).limit(20)
+    )
+    return result.scalars().all()
 
 if __name__ == "__main__":
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
