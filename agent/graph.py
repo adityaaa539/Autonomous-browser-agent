@@ -59,16 +59,18 @@ async def plan_node(state: AgentState):
     logger.info("Planning next action...")
     client = AsyncOpenAI()
     
-    # Build text content representing current state
     user_data = {
         "task": state.get("task", ""),
         "current_url": state.get("current_url", ""),
         "interactive_elements": state.get("interactive_elements", []),
         "history": state.get("steps", [])
     }
-    user_text = json.dumps(user_data, indent=2)
     
     model_name = "openrouter/free"
+    if "deepseek" in model_name or "free" in model_name:
+        user_data["page_text"] = state.get("page_text", "")
+        
+    user_text = json.dumps(user_data, indent=2)
     content = [{"type": "text", "text": user_text}]
     if "deepseek" not in model_name and "free" not in model_name:
         content.append({
@@ -79,23 +81,35 @@ async def plan_node(state: AgentState):
         })
     
     # Call OpenAI API with image and text
-    response = await client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": content
-            }
-        ],
-        max_tokens=1000
-    )
-    
     raw_content = ""
-    if response and getattr(response, "choices", None) and len(response.choices) > 0:
-        choice = response.choices[0]
-        if choice and getattr(choice, "message", None):
-            raw_content = getattr(choice.message, "content", "") or ""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = await client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": content
+                    }
+                ],
+                max_tokens=1000
+            )
+            if response and getattr(response, "choices", None) and len(response.choices) > 0:
+                raw_content = response.choices[0].message.content or ""
+            
+            if not raw_content.strip() and attempt < max_retries - 1:
+                logger.warning(f"Empty response from model. Attempt {attempt + 1} of {max_retries}. Retrying in 2s...")
+                await asyncio.sleep(2)
+                continue
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Error calling OpenAI API: {e}. Attempt {attempt + 1} of {max_retries}. Retrying in 2s...")
+                await asyncio.sleep(2)
+                continue
+            raise e
     raw_content = raw_content.strip()
     
     # Strip markdown code fences if present

@@ -17,7 +17,7 @@ async def run_agent_task(task_id: uuid.UUID, prompt: str, start_url: str):
 
         try:
             # Call the agent
-            res = await run_agent(prompt, start_url)
+            res = await run_agent(prompt, start_url, task_id=task_id, db=db)
             status = "done" if res["success"] else "failed"
             
             # Update task result

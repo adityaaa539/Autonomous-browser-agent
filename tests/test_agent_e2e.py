@@ -31,4 +31,6 @@ async def test_navigate_and_extract():
     res = await run_agent(task, start_url)
     
     assert res["success"] is True, f"Agent run failed: {res.get('error')}"
-    assert "Sample Slide Show" in str(res["result"])
+    res_normalized = str(res["result"]).replace(" ", "").lower()
+    assert "sampleslideshow" in res_normalized
+

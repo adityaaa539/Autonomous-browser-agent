@@ -2,9 +2,10 @@ import pytest
 import uuid
 from httpx import AsyncClient, ASGITransport
 from api.main import app
+from db.crud import append_step
 
 @pytest.mark.asyncio
-async def test_tasks_api_flow():
+async def test_tasks_api_flow(db):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Test invalid prompt (short prompt, < 5 chars)
         response = await ac.post("/tasks", json={
@@ -53,6 +54,34 @@ async def test_tasks_api_flow():
         steps_data = response.json()
         assert steps_data["task_id"] == task_id
         assert steps_data["steps"] == []
+
+        # Add steps of different formats (dict and string JSON) to verify step formatting
+        await append_step(db, uuid.UUID(task_id), {"action": "click", "params": {"x": 10}})
+        await append_step(db, uuid.UUID(task_id), '{"action": "navigate", "params": {"url": "http://test"}, "reasoning": "Go to URL", "result": "Loaded"}')
+        await db.commit()
+
+        # Call GET /tasks/{task_id}/steps again to verify format
+        response = await ac.get(f"/tasks/{task_id}/steps")
+        assert response.status_code == 200
+        steps_data = response.json()
+        assert steps_data["task_id"] == task_id
+        assert len(steps_data["steps"]) == 2
+        
+        # Verify first step formatting (keys: action, params, reasoning, result)
+        assert steps_data["steps"][0] == {
+            "action": "click",
+            "params": {"x": 10},
+            "reasoning": None,
+            "result": None
+        }
+        
+        # Verify second step formatting
+        assert steps_data["steps"][1] == {
+            "action": "navigate",
+            "params": {"url": "http://test"},
+            "reasoning": "Go to URL",
+            "result": "Loaded"
+        }
 
         # 7. Test GET /tasks/{task_id}/steps with non-existent UUID
         response = await ac.get(f"/tasks/{invalid_uuid}/steps")

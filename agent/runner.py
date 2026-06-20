@@ -1,10 +1,12 @@
+import json
 import logging
 from agent.browser import BrowserManager
 from agent.graph import compile_graph, set_browser_context
+from db.crud import append_step
 
 logger = logging.getLogger(__name__)
 
-async def run_agent(task: str, start_url: str) -> dict:
+async def run_agent(task: str, start_url: str, task_id=None, db=None) -> dict:
     logger.info(f"Starting agent run for task: '{task}' at URL: '{start_url}'")
     
     # Create compile_graph()
@@ -35,8 +37,23 @@ async def run_agent(task: str, start_url: str) -> dict:
         # Navigate to start_url
         await browser.navigate(start_url)
         
-        # Call graph.ainvoke(initial_state)
-        final_state = await graph.ainvoke(initial_state)
+        final_state = initial_state
+        written_steps_count = 0
+        
+        # Call graph.astream(initial_state, stream_mode="values")
+        async for event in graph.astream(initial_state, stream_mode="values"):
+            final_state = event
+            steps = event.get("steps") or []
+            if db and task_id and len(steps) > written_steps_count:
+                latest = steps[-1]
+                if isinstance(latest, str):
+                    try:
+                        latest = json.loads(latest)
+                    except Exception:
+                        latest = {"raw": latest}
+                await append_step(db, task_id, latest)
+                await db.commit()
+                written_steps_count = len(steps)
         
         # Return {success, result, error, steps, step_count}
         return {

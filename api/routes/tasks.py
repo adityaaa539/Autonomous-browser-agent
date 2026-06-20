@@ -1,3 +1,4 @@
+import json
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -42,4 +43,23 @@ async def get_task_steps(task_id: uuid.UUID, db: AsyncSession = Depends(get_db))
     if not exists_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
         
-    return {"task_id": task_id, "steps": steps_json or []}
+    formatted_steps = []
+    for step in (steps_json or []):
+        if isinstance(step, str):
+            try:
+                step_dict = json.loads(step)
+            except Exception:
+                step_dict = {}
+        elif isinstance(step, dict):
+            step_dict = step
+        else:
+            step_dict = {}
+            
+        formatted_steps.append({
+            "action": step_dict.get("action"),
+            "params": step_dict.get("params"),
+            "reasoning": step_dict.get("reasoning"),
+            "result": step_dict.get("result")
+        })
+        
+    return {"task_id": task_id, "steps": formatted_steps}

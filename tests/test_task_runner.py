@@ -122,3 +122,63 @@ async def test_api_post_schedules_background_task(db):
             async with AsyncSessionLocal() as session:
                 t = await get_task(session, task_id)
                 assert t.status == "done"
+
+
+@pytest.mark.asyncio
+async def test_run_agent_streaming_db_updates(db):
+    import json
+    from unittest.mock import AsyncMock, patch
+    from agent.runner import run_agent
+    from db.crud import create_task, get_task
+    from db.database import AsyncSessionLocal
+    
+    # 1. Create a task in the database
+    task_row = await create_task(db, "Test Streaming DB Updates", "http://localhost:8899/test_page.html")
+    await db.commit()
+    
+    # 2. Mock AsyncOpenAI chat completions inside agent.graph to perform a 2-step flow
+    mock_response_1 = AsyncMock()
+    mock_response_1.choices = [
+        AsyncMock(message=AsyncMock(content=json.dumps({
+            "action": "fill",
+            "params": {"selector": "#name", "text": "StreamUser"},
+            "reasoning": "First step reasoning",
+            "result": "Success"
+        })))
+    ]
+    
+    mock_response_2 = AsyncMock()
+    mock_response_2.choices = [
+        AsyncMock(message=AsyncMock(content=json.dumps({
+            "action": "done",
+            "params": {"result": "Done string"},
+            "reasoning": "Second step reasoning",
+            "result": "Finished"
+        })))
+    ]
+    
+    # Patch AsyncOpenAI inside agent.graph
+    with patch("agent.graph.AsyncOpenAI") as mock_openai_class:
+        mock_client = AsyncMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create = AsyncMock(side_effect=[
+            mock_response_1,
+            mock_response_2
+        ])
+        
+        res = await run_agent(task_row.prompt, task_row.start_url, task_id=task_row.id, db=db)
+        
+        assert res["success"] is True
+        
+        async with AsyncSessionLocal() as session:
+            updated_task = await get_task(session, task_row.id)
+            assert updated_task is not None
+            assert updated_task.steps_json is not None
+            assert len(updated_task.steps_json) >= 2
+            
+            step1 = updated_task.steps_json[0]
+            if isinstance(step1, str):
+                step1 = json.loads(step1)
+            assert step1["action"] == "fill"
+            assert step1["params"]["selector"] == "#name"
+
