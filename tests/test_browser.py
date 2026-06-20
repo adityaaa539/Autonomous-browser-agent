@@ -125,7 +125,7 @@ async def test_analyze_page_with_vision():
         
         # Verify parameters passed to OpenAI client
         args, kwargs = bm.openai_client.chat.completions.create.call_args
-        assert kwargs["model"] == "openai/gpt-4o"
+        assert kwargs["model"] == "openrouter/free"
         assert kwargs["max_tokens"] == 1000
         messages = kwargs["messages"]
         assert len(messages) == 2
@@ -133,9 +133,8 @@ async def test_analyze_page_with_vision():
         assert messages[1]["role"] == "user"
         
         user_content = messages[1]["content"]
-        assert len(user_content) == 2
+        assert len(user_content) == 1
         assert user_content[0]["type"] == "text"
-        assert user_content[1]["type"] == "image_url"
 
 
 @pytest.mark.asyncio

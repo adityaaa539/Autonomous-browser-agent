@@ -282,8 +282,18 @@ class BrowserManager:
             }
             user_text_json = json.dumps(user_data, indent=2)
 
+            model_name = "openrouter/free"
+            content = [{"type": "text", "text": user_text_json}]
+            if "deepseek" not in model_name and "free" not in model_name:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{screenshot_b64}"
+                    }
+                })
+
             response = await self.openai_client.chat.completions.create(
-                model="openai/gpt-4o",
+                model=model_name,
                 max_tokens=1000,
                 messages=[
                     {
@@ -292,18 +302,7 @@ class BrowserManager:
                     },
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": user_text_json
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{screenshot_b64}"
-                                }
-                            }
-                        ]
+                        "content": content
                     }
                 ]
             )
