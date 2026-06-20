@@ -272,17 +272,18 @@ class BrowserManager:
         try:
             screenshot_b64 = await self.screenshot()
             elements = await self.get_interactive_elements()
-            page_text = await self.get_page_text()
-            page_text_truncated = page_text[:2000]
-
+            
             user_data = {
                 "task": task,
-                "page_text_summary": page_text_truncated,
+                "current_url": self.page.url,
                 "interactive_elements": elements
             }
-            user_text_json = json.dumps(user_data, indent=2)
-
+            
             model_name = "openrouter/free"
+            if "deepseek" in model_name or "free" in model_name:
+                user_data["page_text"] = await self.get_page_text()
+                
+            user_text_json = json.dumps(user_data, indent=2)
             content = [{"type": "text", "text": user_text_json}]
             if "deepseek" not in model_name and "free" not in model_name:
                 content.append({
