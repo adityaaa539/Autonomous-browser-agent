@@ -70,7 +70,7 @@ async def plan_node(state: AgentState):
     
     # Call OpenAI API with image and text
     response = await client.chat.completions.create(
-        model="google/gemini-2.5-flash",
+        model="openai/gpt-4o",
         messages=[
             {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
             {

@@ -125,7 +125,7 @@ async def test_analyze_page_with_vision():
         
         # Verify parameters passed to OpenAI client
         args, kwargs = bm.openai_client.chat.completions.create.call_args
-        assert kwargs["model"] == "nex-agi/nex-n2-pro:free"
+        assert kwargs["model"] == "openai/gpt-4o"
         assert kwargs["max_tokens"] == 1000
         messages = kwargs["messages"]
         assert len(messages) == 2

@@ -283,7 +283,7 @@ class BrowserManager:
             user_text_json = json.dumps(user_data, indent=2)
 
             response = await self.openai_client.chat.completions.create(
-                model="nex-agi/nex-n2-pro:free",
+                model="openai/gpt-4o",
                 max_tokens=1000,
                 messages=[
                     {
