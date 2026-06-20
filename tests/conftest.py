@@ -29,3 +29,19 @@ def http_server():
 @pytest.fixture(scope="session")
 def local_server(http_server):
     return http_server
+
+
+
+import pytest_asyncio
+
+@pytest_asyncio.fixture(autouse=True)
+async def cleanup_db_engine():
+    yield
+    from db.database import engine
+    await engine.dispose()
+
+@pytest_asyncio.fixture
+async def db():
+    from db.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as session:
+        yield session
