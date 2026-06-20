@@ -7,6 +7,8 @@ from db.database import get_db
 from db.models import Task
 from api.schemas import TaskCreate, TaskResponse
 
+from api.task_runner import schedule_agent_task
+
 router = APIRouter()
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -18,6 +20,8 @@ async def create_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
     )
     db.add(task)
     await db.flush()
+    # Schedule the task execution asynchronously in the background
+    schedule_agent_task(task.id, task.prompt, task.start_url)
     return task
 
 @router.get("/{task_id}", response_model=TaskResponse)
