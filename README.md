@@ -93,7 +93,7 @@ make run
 # Or manually
 poetry run uvicorn api.main:app --reload
 ```
-The REST API will now be running on [http://localhost:8000](http://localhost:8000). You can also view interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+The REST API will now be running on [http://localhost:8000](http://localhost:8000). You can access the **interactive Web UI Dashboard** at [http://localhost:8000/ui](http://localhost:8000/ui), and view the interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ---
 
@@ -103,6 +103,7 @@ The REST API will now be running on [http://localhost:8000](http://localhost:800
 | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Root API details and version | None | status JSON |
 | `GET` | `/health` | Database connection status health check | None | health JSON |
+| `GET` | `/ui` | Serve the interactive HTML dashboard web UI | None | HTMLResponse (HTML page) |
 | `POST` | `/tasks` | Create and asynchronously trigger a new browser task | `{"prompt": "str", "start_url": "str"}` | `TaskResponse` (status: `"queued"`) |
 | `GET` | `/tasks` | List the last 20 tasks | None | List of `TaskResponse` objects |
 | `GET` | `/tasks/{task_id}` | Fetch current task details by UUID | Path: `task_id` (UUID) | Detailed `TaskResponse` |

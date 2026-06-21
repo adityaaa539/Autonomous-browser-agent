@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Agent Dashboard</title>
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Reset & Variables */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+            --color-text: #0f172a;
+            --color-bg: #f8fafc;
+            --color-border: #e2e8f0;
+            --color-card-bg: #ffffff;
+            
+            /* Status Colors */
+            --color-queued-bg: #fef3c7;
+            --color-queued-text: #92400e;
+            --color-running-bg: #dbeafe;
+            --color-running-text: #1e3a8a;
+            --color-done-bg: #d1fae5;
+            --color-done-text: #064e3b;
+            --color-failed-bg: #fee2e2;
+            --color-failed-text: #7f1d1d;
+        }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header Bar */
+        header {
+            background-color: var(--color-card-bg);
+            border-bottom: 1px solid var(--color-border);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.online {
+            background-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        .status-dot.offline {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Container Layout */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                grid-template-columns: 1.2fr 0.8fr;
+            }
+        }
+
+        .col-left {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .col-right {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1e293b;
+        }
+
+        /* Submit Form Section */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .form-row {
+                grid-template-columns: 1.2fr 0.8fr;
+            }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .form-group textarea, 
+        .form-group input {
+            font-family: var(--font-family);
+            font-size: 0.9rem;
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: var(--color-text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group textarea:focus, 
+        .form-group input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-family);
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: #0f172a;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background-color: #1e293b;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.99);
+        }
+
+        .btn-primary:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* Error Messages */
+        .error-message {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .validation-error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1) !important;
+        }
+
+        /* Active Task Panel */
+        .active-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .task-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .task-id-badge {
+            font-family: monospace;
+            background-color: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .btn-action {
+            background: none;
+            border: 1px solid var(--color-border);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .badge-queued {
+            background-color: var(--color-queued-bg);
+            color: var(--color-queued-text);
+        }
+
+        .badge-running {
+            background-color: var(--color-running-bg);
+            color: var(--color-running-text);
+        }
+
+        .badge-done {
+            background-color: var(--color-done-bg);
+            color: var(--color-done-text);
+        }
+
+        .badge-failed {
+            background-color: var(--color-failed-bg);
+            color: var(--color-failed-text);
+        }
+
+        /* Action Badges */
+        .action-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .action-navigate { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+        .action-click { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .action-fill { background-color: #ecfeff; color: #083344; border: 1px solid #cffafe; }
+        .action-scroll { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+        .action-done { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .action-fail { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .action-default { background-color: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+
+        /* Connection Lost Banner */
+        .connection-banner {
+            background-color: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* Steps Feed */
+        .steps-container {
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: #f8fafc;
+            padding: 8px;
+        }
+
+        .steps-feed {
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 4px;
+        }
+
+        .step-row {
+            display: flex;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.85rem;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-num {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background-color: #e2e8f0;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .step-body {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-reasoning {
+            font-weight: 500;
+            color: #0f172a;
+        }
+
+        .step-result {
+            color: #64748b;
+            font-family: monospace;
+            background-color: #f8fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #f1f5f9;
+            word-break: break-all;
+            margin-top: 2px;
+        }
+
+        .no-steps {
+            color: #64748b;
+            text-align: center;
+            padding: 32px 16px;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        /* Result Box */
+        .result-box {
+            margin-top: 16px;
+            border-radius: 6px;
+            padding: 12px;
+            display: none;
+        }
+
+        .result-box.success {
+            background-color: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #064e3b;
+        }
+
+        .result-box.error-state {
+            background-color: #fdf2f2;
+            border: 1px solid #fecaca;
+            color: #7f1d1d;
+        }
+
+        .result-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .result-content {
+            font-size: 0.85rem;
+            word-break: break-all;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+
+        /* History Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-border);
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+
+        tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        tbody tr.active-row {
+            background-color: #eff6ff;
+        }
+
+        .prompt-cell {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 32px 16px;
+            color: #64748b;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Bar -->
+    <header>
+        <h1>Browser Agent</h1>
+        <div class="api-status">
+            <span id="status-dot" class="status-dot offline"></span>
+            <span id="status-text">Connecting...</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Left Column: Form & Active Task -->
+        <div class="col-left">
+            <!-- Submit Form Card -->
+            <div class="card">
+                <div class="card-title">Run New Task</div>
+                <form id="task-form" onsubmit="handleFormSubmit(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task-prompt">Task Prompt</label>
+                            <textarea id="task-prompt" placeholder="Search for the latest iPhone price on Amazon" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="start-url">Start URL</label>
+                            <input type="text" id="start-url" placeholder="https://amazon.com" required>
+                            <span id="url-validation-error" class="error-message"></span>
+                        </div>
+                    </div>
+                    <button type="submit" id="submit-btn" class="btn btn-primary">Run Agent</button>
+                    <div id="submit-error" class="error-message"></div>
+                </form>
+            </div>
+
+            <!-- Active Task Panel -->
+            <div class="card" id="active-task-card" style="display: none;">
+                <div class="active-task-header">
+                    <div class="task-meta">
+                        <span class="card-title" style="margin-bottom: 0;">Active Task</span>
+                        <span id="active-task-id" class="task-id-badge"></span>
+                        <button class="btn-action" onclick="copyTaskId()">Copy ID</button>
+                        <button class="btn-action" onclick="resetActivePanelToNew()">New Task</button>
+                    </div>
+                    <span id="active-status-badge" class="badge"></span>
+                </div>
+
+                <!-- Connection Lost Warning -->
+                <div class="connection-banner" id="connection-lost-banner">
+                    <span>Connection lost. Polling stopped.</span>
+                    <button class="btn-action" onclick="retryPolling()" style="background: white; border-color: #fee2e2;">Retry</button>
+                </div>
+
+                <!-- Steps Feed Container -->
+                <div class="steps-container">
+                    <div class="steps-feed" id="steps-feed">
+                        <div class="no-steps">No steps logged yet.</div>
+                    </div>
+                </div>
+
+                <!-- Final Result / Error Highlight -->
+                <div class="result-box" id="result-box">
+                    <div class="result-title" id="result-box-title">Final Result</div>
+                    <div class="result-content" id="result-box-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Task History -->
+        <div class="col-right">
+            <div class="card" style="flex-grow: 1;">
+                <div class="card-title">Task History</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Prompt</th>
+                                <th>Status</th>
+                                <th>Steps</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                    <div id="history-empty" class="empty-history" style="display: none;">No task history found.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Block -->
+    <script>
+        // Global variables
+        let currentTaskId = null;
+        let pollingInterval = null;
+        let consecutiveErrors = 0;
+        let isOnline = false;
+
+        // On page load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkHealth();
+            fetchHistory();
+            
+            // Check health every 15 seconds
+            setInterval(checkHealth, 15000);
+            // Auto refresh history every 10 seconds
+            setInterval(fetchHistory, 10000);
+        });
+
+        // Check Backend Health
+        async function checkHealth() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            try {
+                const res = await fetch('/health');
+                if (res.ok) {
+                    isOnline = true;
+                    statusDot.className = 'status-dot online';
+                    statusText.textContent = 'API online';
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                isOnline = false;
+                statusDot.className = 'status-dot offline';
+                statusText.textContent = 'API offline';
+            }
+        }
+
+        // Fetch History list
+        async function fetchHistory() {
+            try {
+                const res = await fetch('/tasks');
+                if (!res.ok) return;
+                const tasks = await res.json();
+                
+                // Get the last 10 tasks
+                const lastTen = tasks.slice(0, 10);
+                renderHistory(lastTen);
+            } catch (err) {
+                console.error("Error fetching task history:", err);
+            }
+        }
+
+        // Render history table
+        function renderHistory(tasks) {
+            const tbody = document.getElementById('history-table-body');
+            const emptyDiv = document.getElementById('history-empty');
+            
+            if (tasks.length === 0) {
+                tbody.innerHTML = '';
+                emptyDiv.style.display = 'block';
+                return;
+            }
+            
+            emptyDiv.style.display = 'none';
+            
+            let html = '';
+            tasks.forEach((task, idx) => {
+                const truncatedPrompt = task.prompt.length > 40 ? task.prompt.substring(0, 40) + '...' : task.prompt;
+                const badgeClass = getStatusBadgeClass(task.status);
+                const stepCount = task.step_count || 0;
+                
+                // Simple date parsing
+                let dateStr = '';
+                try {
+                    const d = new Date(task.created_at);
+                    dateStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                } catch(e) {
+                    dateStr = task.created_at;
+                }
+
+                const isActive = (task.id === currentTaskId) ? 'class="active-row"' : '';
+                
+                html += `
+                    <tr onclick="loadTask('${task.id}')" ${isActive}>
+                        <td><strong>${idx + 1}</strong></td>
+                        <td class="prompt-cell" title="${escapeHtml(task.prompt)}">${escapeHtml(truncatedPrompt)}</td>
+                        <td><span class="badge ${badgeClass}">${task.status}</span></td>
+                        <td>${stepCount}</td>
+                        <td>${dateStr}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // Form Submit Handler
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            const promptInput = document.getElementById('task-prompt');
+            const urlInput = document.getElementById('start-url');
+            const validationError = document.getElementById('url-validation-error');
+            const submitError = document.getElementById('submit-error');
+            const submitBtn = document.getElementById('submit-btn');
+
+            // Reset error states
+            urlInput.classList.remove('validation-error');
+            validationError.style.display = 'none';
+            submitError.style.display = 'none';
+
+            const prompt = promptInput.value.trim();
+            const startUrl = urlInput.value.trim();
+
+            // Inline URL validation
+            if (!startUrl.startsWith('http')) {
+                urlInput.classList.add('validation-error');
+                validationError.textContent = 'Start URL must start with http:// or https://';
+                validationError.style.display = 'block';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Starting agent...';
+
+            try {
+                const res = await fetch('/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, start_url: startUrl })
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail || 'Failed to submit task');
+                }
+
+                const task = await res.json();
+                
+                // Set active task and start polling
+                startMonitoringTask(task.id);
+                
+                // Refresh history immediately
+                fetchHistory();
+            } catch (err) {
+                submitError.textContent = err.message || 'Error occurred while contacting backend.';
+                submitError.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Run Agent';
+            }
+        }
+
+        // Load a task from history
+        function loadTask(taskId) {
+            startMonitoringTask(taskId);
+        }
+
+        // Initialize monitoring of a task
+        function startMonitoringTask(taskId) {
+            currentTaskId = taskId;
+            consecutiveErrors = 0;
+            document.getElementById('connection-lost-banner').style.display = 'none';
+            
+            // Show active panel card
+            const panel = document.getElementById('active-task-card');
+            panel.style.display = 'block';
+
+            // Update header task ID
+            document.getElementById('active-task-id').textContent = taskId.substring(0, 8);
+            
+            // Update active state in table
+            const rows = document.querySelectorAll('#history-table-body tr');
+            rows.forEach(r => r.classList.remove('active-row'));
+            
+            // Reset result and steps boxes
+            document.getElementById('result-box').style.display = 'none';
+            document.getElementById('steps-feed').innerHTML = '<div class="no-steps">Loading steps...</div>';
+
+            // Clear existing interval
+            if (pollingInterval) clearInterval(pollingInterval);
+
+            // Execute immediately, then poll
+            pollTaskDetails();
+            pollingInterval = setInterval(pollTaskDetails, 2000);
+        }
+
+        // Single poll execution
+        async function pollTaskDetails() {
+            if (!currentTaskId) return;
+
+            try {
+                // Fetch details
+                const detailRes = await fetch(`/tasks/${currentTaskId}`);
+                if (!detailRes.ok) throw new Error("Failed to fetch task details");
+                const task = await detailRes.json();
+
+                // Fetch steps
+                const stepsRes = await fetch(`/tasks/${currentTaskId}/steps`);
+                if (!stepsRes.ok) throw new Error("Failed to fetch steps");
+                const stepsData = await stepsRes.json();
+
+                consecutiveErrors = 0;
+                document.getElementById('connection-lost-banner').style.display = 'none';
+
+                // Update UI status badge
+                const statusBadge = document.getElementById('active-status-badge');
+                statusBadge.textContent = task.status;
+                statusBadge.className = `badge ${getStatusBadgeClass(task.status)}`;
+
+                // Update steps list
+                renderSteps(stepsData.steps || []);
+
+                // If done/failed, terminate polling & render final result block
+                if (task.status === 'done' || task.status === 'failed') {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    
+                    const resultBox = document.getElementById('result-box');
+                    const title = document.getElementById('result-box-title');
+                    const content = document.getElementById('result-box-content');
+                    
+                    resultBox.style.display = 'block';
+                    if (task.status === 'done') {
+                        resultBox.className = 'result-box success';
+                        title.textContent = 'Final Result';
+                        
+                        // Parse or display result
+                        let resultText = '';
+                        if (task.result_json) {
+                            try {
+                                resultText = JSON.stringify(task.result_json, null, 2);
+                            } catch(e) {
+                                resultText = String(task.result_json);
+                            }
+                        } else {
+                            resultText = 'Task completed successfully.';
+                        }
+                        content.textContent = resultText;
+                    } else {
+                        resultBox.className = 'result-box error-state';
+                        title.textContent = 'Task Failed';
+                        content.textContent = task.error || 'An unknown error occurred during execution.';
+                    }
+                }
+                
+                // Periodically update history list count during updates
+                fetchHistory();
+
+            } catch (err) {
+                consecutiveErrors++;
+                if (consecutiveErrors >= 3) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    document.getElementById('connection-lost-banner').style.display = 'flex';
+                }
+                console.error("Polling error:", err);
+            }
+        }
+
+        // Render individual steps in feed
+        function renderSteps(steps) {
+            const feed = document.getElementById('steps-feed');
+            if (steps.length === 0) {
+                feed.innerHTML = '<div class="no-steps">No steps logged yet.</div>';
+                return;
+            }
+
+            let html = '';
+            steps.forEach((step, idx) => {
+                const action = step.action || 'default';
+                const actionBadgeClass = `action-${action.toLowerCase()}`;
+                
+                let reasoningText = step.reasoning || 'Executing sub-step...';
+                let resultText = '';
+                if (step.result) {
+                    if (typeof step.result === 'object') {
+                        resultText = JSON.stringify(step.result, null, 2);
+                    } else {
+                        resultText = String(step.result);
+                    }
+                }
+
+                html += `
+                    <div class="step-row">
+                        <div class="step-num">${idx + 1}</div>
+                        <div class="step-body">
+                            <div class="step-header">
+                                <span class="step-reasoning">${escapeHtml(reasoningText)}</span>
+                                <span class="action-badge ${actionBadgeClass}">${escapeHtml(action)}</span>
+                            </div>
+                            ${resultText ? `<div class="step-result">${escapeHtml(resultText)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Remember user scroll position or auto scroll to bottom
+            const isScrolledToBottom = feed.scrollHeight - feed.clientHeight <= feed.scrollTop + 50;
+            feed.innerHTML = html;
+            if (isScrolledToBottom || feed.innerHTML.includes('step-row')) {
+                feed.scrollTop = feed.scrollHeight;
+            }
+        }
+
+        // Retry polling when connection banner button is clicked
+        function retryPolling() {
+            if (currentTaskId) {
+                startMonitoringTask(currentTaskId);
+            }
+        }
+
+        // Copy active task UUID
+        function copyTaskId() {
+            if (!currentTaskId) return;
+            navigator.clipboard.writeText(currentTaskId).then(() => {
+                const copyBtn = document.querySelector('.task-meta button');
+                const origText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = origText;
+                }, 1500);
+            }).catch(err => {
+                console.error("Could not copy task ID:", err);
+            });
+        }
+
+        // Reset the active panel to focus on a new task input
+        function resetActivePanelToNew() {
+            // Clear active panel and intervals
+            currentTaskId = null;
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            document.getElementById('active-task-card').style.display = 'none';
+            document.getElementById('connection-lost-banner').style.display = 'none';
+            
+            // Clear active highlights in table
+            const rows = document.querySelectorAll('#history-table-body tr');
+            rows.forEach(r => r.classList.remove('active-row'));
+
+            // Clear and focus inputs
+            const promptInput = document.getElementById('task-prompt');
+            const urlInput = document.getElementById('start-url');
+            promptInput.value = '';
+            urlInput.value = '';
+            
+            promptInput.focus();
+        }
+
+        // Helper: get badge styles
+        function getStatusBadgeClass(status) {
+            switch(status) {
+                case 'queued': return 'badge-queued';
+                case 'running': return 'badge-running';
+                case 'done': return 'badge-done';
+                case 'failed': return 'badge-failed';
+                default: return 'badge-queued';
+            }
+        }
+
+        // Helper: escape HTML tags safely
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+</html>

@@ -33,6 +33,16 @@ app.add_middleware(
 )
 
 # Register routes
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import os
+
+@app.get("/ui", response_class=HTMLResponse)
+async def serve_ui():
+    ui_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    with open(ui_path) as f:
+        return HTMLResponse(content=f.read())
+
 app.include_router(tasks_router, prefix="/tasks")
 
 @app.on_event("startup")
