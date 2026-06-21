@@ -2,14 +2,6 @@
 
 Autonomous Browser Agent is a Python-based autonomous agent that completes complex web browser tasks step-by-step using LangGraph and Playwright. It streams execution events in real-time to a PostgreSQL database and exposes a FastAPI REST API for task scheduling, progress monitoring, and structured step retrieval.
 
----
-
-## Demo Placeholder
-
-![Browser Agent Execution Demo](docs/assets/demo_screenshot.png)
-
----
-
 ## Tech Stack
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
