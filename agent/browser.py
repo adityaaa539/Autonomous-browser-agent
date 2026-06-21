@@ -279,8 +279,8 @@ class BrowserManager:
                 "interactive_elements": elements
             }
             
-            model_name = "openrouter/free"
-            if "deepseek" in model_name or "free" in model_name:
+            model_name = os.getenv("MODEL_NAME", "google/gemma-4-31b-it:free")
+            if "deepseek" in model_name or "free" in model_name or "gemma" in model_name:
                 user_data["page_text"] = await self.get_page_text()
                 
             user_text_json = json.dumps(user_data, indent=2)

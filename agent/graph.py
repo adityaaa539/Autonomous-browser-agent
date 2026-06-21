@@ -66,8 +66,8 @@ async def plan_node(state: AgentState):
         "history": state.get("steps", [])
     }
     
-    model_name = "openrouter/free"
-    if "deepseek" in model_name or "free" in model_name:
+    model_name = os.getenv("MODEL_NAME", "google/gemma-4-31b-it:free")
+    if "deepseek" in model_name or "free" in model_name or "gemma" in model_name:
         user_data["page_text"] = state.get("page_text", "")
         
     user_text = json.dumps(user_data, indent=2)
