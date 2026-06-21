@@ -6,7 +6,7 @@ Autonomous Browser Agent is a Python-based autonomous agent that completes compl
 
 ## Demo Placeholder
 
-![Browser Agent Execution Demo](https://raw.githubusercontent.com/adityaaa539/Autonomous-browser-agent/main/docs/assets/demo_screenshot.png)
+![Browser Agent Execution Demo](docs/assets/demo_screenshot.png)
 
 ---
 
